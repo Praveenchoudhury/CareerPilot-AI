@@ -1,17 +1,54 @@
 """
 Gemini AI Service — Phase 2 implementation.
 
-Phase 1 stub: this module exists so imports don't break when Phase 2 wires
-the Gemini client in. The environment variable GEMINI_MODEL is read at import
-time so the configured value is always honoured without restarting.
+Uses the google-genai SDK (v2+). Streams a single JSON object back
+token-by-token so the frontend can show a progress indicator while the
+full analysis is being generated.
 """
 import os
 from typing import AsyncIterator
 
-# Model is configurable via environment variable; falls back to the latest
-# free Gemini Flash tier model.
+from google import genai
+from google.genai import types
+
+from backend.prompts.analysis_prompt import (
+    ANALYSIS_SYSTEM_PROMPT,
+    build_analysis_prompt,
+)
+from backend.prompts.cover_letter_prompt import (
+    COVER_LETTER_SYSTEM_PROMPT,
+    build_cover_letter_prompt,
+)
+from backend.prompts.linkedin_prompt import (
+    LINKEDIN_SYSTEM_PROMPT,
+    build_linkedin_prompt,
+)
+
+# ---------------------------------------------------------------------------
+# Configuration — read once at import time so env changes require a restart
+# ---------------------------------------------------------------------------
+
+GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-preview-05-20")
 
+
+def _get_client() -> genai.Client:
+    """Return a configured Gemini client, raising clearly if key is missing."""
+    key = os.getenv("GEMINI_API_KEY", "")
+    if not key:
+        raise RuntimeError(
+            "GEMINI_API_KEY is not set. Add it to your .env file or Replit Secrets."
+        )
+    return genai.Client(api_key=key)
+
+
+def _model() -> str:
+    return os.getenv("GEMINI_MODEL", "gemini-2.5-flash-preview-05-20")
+
+
+# ---------------------------------------------------------------------------
+# Public streaming generators
+# ---------------------------------------------------------------------------
 
 async def stream_analysis(
     resume_text: str,
@@ -19,9 +56,22 @@ async def stream_analysis(
 ) -> AsyncIterator[str]:
     """
     Stream a full 13-section career analysis from Gemini.
-    Phase 2 will replace this stub with the real implementation.
+    Yields raw text chunks that together form a single JSON object.
     """
-    raise NotImplementedError("Gemini integration will be added in Phase 2.")
+    client = _get_client()
+    prompt = build_analysis_prompt(resume_text, job_title)
+
+    async for chunk in await client.aio.models.generate_content_stream(
+        model=_model(),
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            system_instruction=ANALYSIS_SYSTEM_PROMPT,
+            temperature=0.4,
+            response_mime_type="application/json",
+        ),
+    ):
+        if chunk.text:
+            yield chunk.text
 
 
 async def stream_cover_letter(
@@ -29,13 +79,37 @@ async def stream_cover_letter(
     job_title: str,
     job_description: str,
 ) -> AsyncIterator[str]:
-    """Stream a tailored cover letter from Gemini. Phase 2."""
-    raise NotImplementedError("Gemini integration will be added in Phase 2.")
+    """Stream a tailored cover letter from Gemini."""
+    client = _get_client()
+    prompt = build_cover_letter_prompt(resume_text, job_title, job_description)
+
+    async for chunk in await client.aio.models.generate_content_stream(
+        model=_model(),
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            system_instruction=COVER_LETTER_SYSTEM_PROMPT,
+            temperature=0.7,
+        ),
+    ):
+        if chunk.text:
+            yield chunk.text
 
 
 async def stream_linkedin(
     resume_text: str,
     job_title: str = "",
 ) -> AsyncIterator[str]:
-    """Stream LinkedIn headline variants and About section. Phase 2."""
-    raise NotImplementedError("Gemini integration will be added in Phase 2.")
+    """Stream LinkedIn headline variants and About section from Gemini."""
+    client = _get_client()
+    prompt = build_linkedin_prompt(resume_text, job_title)
+
+    async for chunk in await client.aio.models.generate_content_stream(
+        model=_model(),
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            system_instruction=LINKEDIN_SYSTEM_PROMPT,
+            temperature=0.6,
+        ),
+    ):
+        if chunk.text:
+            yield chunk.text

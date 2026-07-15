@@ -79,7 +79,19 @@ const StreamClient = (() => {
                 return;
               }
 
-              jsonBuf += chunk;
+              // Server signals a mid-stream error with __ERROR__{...json...}
+              if (chunk.startsWith('__ERROR__')) {
+                try {
+                  const errObj = JSON.parse(chunk.slice(9));
+                  onError(new Error(errObj.error || 'Server error during analysis.'));
+                } catch (_) {
+                  onError(new Error('Server error during analysis.'));
+                }
+                return;
+              }
+
+              // Unescape newlines the server escaped inside SSE frames
+              jsonBuf += chunk.replace(/\\n/g, '\n');
               if (onChunk) onChunk(chunk);
             }
           }
