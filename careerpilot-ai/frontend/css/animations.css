@@ -1,0 +1,178 @@
+/* ── CareerPilot AI — Animations & Transitions ───────────────────────────── */
+
+/* ── Keyframes ───────────────────────────────────────────────────────────── */
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 8px currentColor; }
+  50%       { opacity: 0.6; box-shadow: 0 0 3px currentColor; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(40px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideOutRight {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(40px); }
+}
+
+@keyframes slideInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(139, 92, 246, 0.3); }
+  50%       { box-shadow: 0 0 40px rgba(139, 92, 246, 0.6); }
+}
+
+@keyframes streamCursor {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+/* ── Page transition ─────────────────────────────────────────────────────── */
+.page-enter {
+  animation: fadeInUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ── Loading overlay ─────────────────────────────────────────────────────── */
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: rgba(7, 7, 15, 0.85);
+  backdrop-filter: blur(12px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  animation: fadeIn 0.2s ease;
+}
+
+.loading-spinner {
+  width: 56px;
+  height: 56px;
+  border: 3px solid rgba(139, 92, 246, 0.2);
+  border-top-color: #8b5cf6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.loading-text {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.loading-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+
+.loading-step {
+  font-size: 13px;
+  color: var(--text-muted);
+  opacity: 0;
+  animation: fadeInUp 0.4s ease forwards;
+}
+
+.loading-step.active { color: var(--accent); opacity: 1; }
+.loading-step.done   { color: var(--success); opacity: 0.7; }
+.loading-step.done::before { content: '✓ '; }
+
+/* ── Stream cursor (blinking pipe while streaming) ───────────────────────── */
+.stream-cursor::after {
+  content: '▋';
+  display: inline;
+  color: var(--accent);
+  animation: streamCursor 0.9s step-end infinite;
+  margin-left: 1px;
+}
+
+/* ── Analyzing progress bar ──────────────────────────────────────────────── */
+.analyzing-bar {
+  height: 2px;
+  background: var(--gradient-primary);
+  background-size: 200% 100%;
+  animation: progressFlow 1.5s linear infinite;
+  border-radius: var(--radius-full);
+}
+
+@keyframes progressFlow {
+  0%   { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+/* ── Drop zone active glow ───────────────────────────────────────────────── */
+.drop-zone.drag-over {
+  animation: glow 1s ease-in-out infinite;
+}
+
+/* ── Section entrance animations ─────────────────────────────────────────── */
+.animate-on-scroll {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animate-on-scroll.in-view {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Stagger grid children */
+.features-grid .feature-card:nth-child(1)  { transition-delay: 0.00s; }
+.features-grid .feature-card:nth-child(2)  { transition-delay: 0.05s; }
+.features-grid .feature-card:nth-child(3)  { transition-delay: 0.10s; }
+.features-grid .feature-card:nth-child(4)  { transition-delay: 0.15s; }
+.features-grid .feature-card:nth-child(5)  { transition-delay: 0.20s; }
+.features-grid .feature-card:nth-child(6)  { transition-delay: 0.25s; }
+.features-grid .feature-card:nth-child(7)  { transition-delay: 0.30s; }
+.features-grid .feature-card:nth-child(8)  { transition-delay: 0.35s; }
+.features-grid .feature-card:nth-child(9)  { transition-delay: 0.40s; }
+.features-grid .feature-card:nth-child(10) { transition-delay: 0.45s; }
+.features-grid .feature-card:nth-child(11) { transition-delay: 0.50s; }
+.features-grid .feature-card:nth-child(12) { transition-delay: 0.55s; }
+.features-grid .feature-card:nth-child(13) { transition-delay: 0.60s; }
+
+/* ── Reduced motion ──────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .orb { animation: none !important; }
+  html { scroll-behavior: auto; }
+}

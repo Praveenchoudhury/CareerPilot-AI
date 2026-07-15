@@ -1,0 +1,34 @@
+# ── AWS App Runner Service Configuration ──────────────────────────────────────
+# This file is used for source-based (non-container) App Runner deployments.
+# For Docker-based deployments, configure via the AWS Console or CDK and point
+# to the image built from /Dockerfile.
+#
+# Source-based deploy assumes Python 3.12 runtime on App Runner.
+# Set GEMINI_API_KEY as a secret in App Runner environment variables — never
+# hard-code it here.
+# ──────────────────────────────────────────────────────────────────────────────
+
+version: 1.0
+runtime: python312
+
+build:
+  commands:
+    pre-build:
+      - echo "Installing CareerPilot AI dependencies..."
+    build:
+      - pip install -r requirements.txt
+    post-build:
+      - echo "Build complete."
+
+run:
+  command: uvicorn backend.main:app --host 0.0.0.0 --port 8080 --workers 2
+  network:
+    port: 8080
+    env: PORT
+  env:
+    - name: PORT
+      value: "8080"
+    - name: PYTHONUNBUFFERED
+      value: "1"
+    # Set GEMINI_API_KEY and GEMINI_MODEL in the App Runner console under
+    # "Environment variables" → mark GEMINI_API_KEY as a secret.

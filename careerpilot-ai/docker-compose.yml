@@ -1,0 +1,38 @@
+version: "3.9"
+
+# ── CareerPilot AI — Local Development Stack ──────────────────────────────────
+# Usage:
+#   docker compose up --build          Start with live reload
+#   docker compose up --build -d       Start detached
+#   docker compose down                Stop and remove containers
+# ──────────────────────────────────────────────────────────────────────────────
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: careerpilot-ai
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      - PORT=8080
+    volumes:
+      # Mount source for hot-reload during development (remove in production)
+      - ./backend:/app/backend:ro
+      - ./frontend:/app/frontend:ro
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8080/api/health')",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
