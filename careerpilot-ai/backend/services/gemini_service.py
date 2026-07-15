@@ -15,35 +15,25 @@ from backend.prompts.analysis_prompt import (
     ANALYSIS_SYSTEM_PROMPT,
     build_analysis_prompt,
 )
-from backend.prompts.cover_letter_prompt import (
-    COVER_LETTER_SYSTEM_PROMPT,
-    build_cover_letter_prompt,
-)
-from backend.prompts.linkedin_prompt import (
-    LINKEDIN_SYSTEM_PROMPT,
-    build_linkedin_prompt,
-)
+from backend.prompts.cover_letter_prompt import build_cover_letter_prompt
+from backend.prompts.linkedin_prompt import build_linkedin_prompt
 
 # ---------------------------------------------------------------------------
-# Configuration — read once at import time so env changes require a restart
+# Helpers
 # ---------------------------------------------------------------------------
-
-GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-preview-05-20")
-
 
 def _get_client() -> genai.Client:
     """Return a configured Gemini client, raising clearly if key is missing."""
     key = os.getenv("GEMINI_API_KEY", "")
     if not key:
         raise RuntimeError(
-            "GEMINI_API_KEY is not set. Add it to your .env file or Replit Secrets."
+            "GEMINI_API_KEY is not set. Add it to your Replit Secrets."
         )
     return genai.Client(api_key=key)
 
 
 def _model() -> str:
-    return os.getenv("GEMINI_MODEL", "gemini-2.5-flash-preview-05-20")
+    return os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
 
 # ---------------------------------------------------------------------------
@@ -87,7 +77,6 @@ async def stream_cover_letter(
         model=_model(),
         contents=prompt,
         config=types.GenerateContentConfig(
-            system_instruction=COVER_LETTER_SYSTEM_PROMPT,
             temperature=0.7,
         ),
     ):
@@ -107,8 +96,8 @@ async def stream_linkedin(
         model=_model(),
         contents=prompt,
         config=types.GenerateContentConfig(
-            system_instruction=LINKEDIN_SYSTEM_PROMPT,
             temperature=0.6,
+            response_mime_type="application/json",
         ),
     ):
         if chunk.text:
