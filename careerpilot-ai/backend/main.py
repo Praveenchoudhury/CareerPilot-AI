@@ -1,3 +1,4 @@
+import logging
 import os
 from pathlib import Path
 from fastapi import FastAPI
@@ -7,6 +8,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# Configure structured logging so every logger.info/warning/error call in
+# gemini_service.py and analyze.py is visible in the uvicorn console output.
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
+    datefmt="%H:%M:%S",
+)
 
 from backend.routers import health, analyze
 
