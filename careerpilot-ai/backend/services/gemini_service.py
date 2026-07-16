@@ -33,7 +33,7 @@ def _get_client() -> genai.Client:
 
 
 def _model() -> str:
-    return os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    return os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
 
 
 # ---------------------------------------------------------------------------
