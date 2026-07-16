@@ -1,5 +1,4 @@
 import json
-import asyncio
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from fastapi.responses import StreamingResponse
 from backend.models.schemas import AnalyzeRequest, CoverLetterRequest, LinkedInRequest
@@ -22,18 +21,20 @@ MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 async def _sse_generator(async_gen):
     """
     Wrap an async generator that yields text chunks into SSE format.
-    Each chunk is sent as:  data: <chunk>\\n\\n
-    Stream is terminated with:  data: [DONE]\\n\\n
+
+    Each text chunk is JSON-encoded (json.dumps) before sending so that ALL
+    control characters — including newlines inside JSON string values — are
+    properly escaped and survive the SSE transport without corruption.
+
+      Normal chunk:  data: "escaped chunk text"\\n\\n
+      End sentinel:  data: [DONE]\\n\\n
+      Error frame:   data: __ERROR__{"error": "..."}\\n\\n
     """
     try:
         async for chunk in async_gen:
-            # Escape any bare newlines inside a chunk so the SSE frame stays
-            # on a single logical line (SSE uses \\n\\n as frame delimiter).
-            safe = chunk.replace("\n", "\\n")
-            yield f"data: {safe}\n\n"
+            yield f"data: {json.dumps(chunk)}\n\n"
         yield "data: [DONE]\n\n"
     except RuntimeError as exc:
-        # API key missing or other config error
         error_payload = json.dumps({"error": str(exc)})
         yield f"data: __ERROR__{error_payload}\n\n"
     except Exception as exc:

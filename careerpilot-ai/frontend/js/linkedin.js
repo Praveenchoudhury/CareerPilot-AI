@@ -1,8 +1,6 @@
 /**
  * linkedin.js — LinkedIn Optimizer modal.
- *
- * Phase 1: Modal open/close and form wiring.
- * Phase 2: Connects to /api/linkedin SSE endpoint.
+ * Streams JSON from /api/linkedin via SSE and renders headlines + About section.
  */
 
 const LinkedIn = (() => {
@@ -11,8 +9,9 @@ const LinkedIn = (() => {
       headlinesContainer, aboutContainer;
 
   // ── State ──────────────────────────────────────────────────────────────
-  let resumeText = '';
-  let jobTitle   = '';
+  let resumeText   = '';
+  let jobTitle     = '';
+  let activeStream = null;
 
   // ── Open / Close ──────────────────────────────────────────────────────
 
@@ -24,61 +23,76 @@ const LinkedIn = (() => {
   }
 
   function close() {
+    if (activeStream) { activeStream.abort(); activeStream = null; }
     modal.classList.add('hidden');
     document.body.style.overflow = '';
   }
 
+  // ── UI helpers ─────────────────────────────────────────────────────────
+
+  function setLoading(on) {
+    generateBtn.disabled = on;
+    generateBtn.querySelector('.btn-default-content').classList.toggle('hidden', on);
+    generateBtn.querySelector('.btn-loading-content').classList.toggle('hidden', !on);
+  }
+
   // ── Generate ──────────────────────────────────────────────────────────
 
-  async function generate() {
+  function generate() {
     if (!resumeText) {
       App.showToast('Please complete a resume analysis first.', 'info');
       return;
     }
 
-    generateBtn.disabled = true;
-    generateBtn.querySelector('.btn-default-content').classList.add('hidden');
-    generateBtn.querySelector('.btn-loading-content').classList.remove('hidden');
+    // Abort any in-flight stream
+    if (activeStream) { activeStream.abort(); activeStream = null; }
+
+    setLoading(true);
     resultBox.classList.add('hidden');
 
-    try {
-      // Phase 2: replace with real SSE call to /api/linkedin
-      await new Promise(r => setTimeout(r, 600));
+    activeStream = StreamClient.openStream({
+      url:  '/api/linkedin',
+      body: { resume_text: resumeText, job_title: jobTitle || '' },
 
-      // Placeholder render
-      renderResult({
-        headlines: [
-          { variant: 1, text: 'Software Engineer | Full-Stack Developer | React & Node.js | Building Scalable Web Applications', tone: 'Achievement-focused' },
-          { variant: 2, text: 'Full-Stack Engineer @ [Company] | JavaScript · TypeScript · Cloud | Open to Senior Roles', tone: 'Role + Value' },
-          { variant: 3, text: 'Senior Software Engineer | React · Node.js · AWS | 5+ Years Building High-Performance Systems', tone: 'Keyword-optimized' },
-        ],
-        about_section:
-          'LinkedIn optimization will be available in Phase 2 after Gemini integration.\n\n' +
-          'The backend endpoint /api/linkedin is already defined and ready to connect.\n\n' +
-          'Your personalized About section will appear here once the AI is integrated.',
-      });
+      onChunk(_chunk) {
+        // accumulate silently — JSON must be complete before rendering
+      },
 
-      resultBox.classList.remove('hidden');
-      App.showToast('LinkedIn content generated! (Phase 2 preview)', 'info');
-    } catch (err) {
-      App.showToast(err.message || 'Failed to generate LinkedIn content.', 'error');
-    } finally {
-      generateBtn.disabled = false;
-      generateBtn.querySelector('.btn-default-content').classList.remove('hidden');
-      generateBtn.querySelector('.btn-loading-content').classList.add('hidden');
-    }
+      onComplete(data) {
+        activeStream = null;
+        setLoading(false);
+
+        if (data && data.error) {
+          App.showToast(data.error, 'error', 6000);
+          return;
+        }
+
+        renderResult(data);
+        resultBox.classList.remove('hidden');
+        App.showToast('LinkedIn content generated!', 'success');
+      },
+
+      onError(err) {
+        activeStream = null;
+        setLoading(false);
+        App.showToast(err.message || 'Failed to generate LinkedIn content.', 'error');
+      },
+    });
   }
 
   // ── Render result ─────────────────────────────────────────────────────
 
   function renderResult(data) {
+    const headlines = Array.isArray(data.headlines) ? data.headlines : [];
+    const about     = data.about_section || '';
+
     // Headlines
-    headlinesContainer.innerHTML = data.headlines.map(h => `
+    headlinesContainer.innerHTML = headlines.map(h => `
       <div class="li-headline-item">
-        <div class="li-headline-num">${h.variant}</div>
+        <div class="li-headline-num">${Number(h.variant) || ''}</div>
         <div>
           <div class="li-headline-text">${escHtml(h.text)}</div>
-          <div class="li-headline-tone">${escHtml(h.tone)}</div>
+          <div class="li-headline-tone">${escHtml(h.tone || '')}</div>
         </div>
         <button class="btn-text-sm copy-headline-btn" data-text="${escAttr(h.text)}">Copy</button>
       </div>`).join('');
@@ -86,7 +100,7 @@ const LinkedIn = (() => {
     // About section
     aboutContainer.innerHTML = `
       <div class="result-label" style="margin-top: var(--space-5)">About Section</div>
-      <div class="result-text">${escHtml(data.about_section)}</div>
+      <div class="result-text">${escHtml(about)}</div>
       <button class="btn btn-outline btn-sm" style="margin-top: var(--space-4)" id="copyAboutBtn">
         Copy About Section
       </button>`;
@@ -122,12 +136,12 @@ const LinkedIn = (() => {
 
   function escHtml(str) {
     const d = document.createElement('div');
-    d.textContent = str;
+    d.textContent = String(str);
     return d.innerHTML;
   }
 
   function escAttr(str) {
-    return str.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    return String(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
   // ── Set data (called by App after analysis) ────────────────────────────

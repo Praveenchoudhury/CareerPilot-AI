@@ -202,7 +202,7 @@ const App = (() => {
     initScrollAnimations();
     initNewAnalysisBtn();
 
-    console.log('%cCareerPilot AI — Phase 2 loaded ✓', 'color: #8b5cf6; font-weight: bold; font-size: 14px;');
+    console.log('%cCareerPilot AI loaded ✓', 'color: #8b5cf6; font-weight: bold; font-size: 14px;');
     console.log('%cGemini AI integration active.', 'color: #22c55e; font-size: 12px;');
   }
 

@@ -1,12 +1,13 @@
 /**
  * stream.js — Server-Sent Events client and token renderer
  *
- * Phase 1: stub with full interface defined.
- * Phase 2: will replace the stub body with real SSE fetch + JSON parsing.
+ * The server sends chunks via SSE data events.
+ * The client accumulates chunks and calls `onComplete` once the
+ * full response has been received.
  *
- * The server sends a single JSON object delimited by SSE data events.
- * The client accumulates chunks and calls `onComplete` once the full
- * JSON has been received.
+ * Supports two modes:
+ *   parseAsText: false (default) — accumulates chunks and JSON.parse on [DONE]
+ *   parseAsText: true            — accumulates chunks and returns raw string on [DONE]
  */
 
 const StreamClient = (() => {
@@ -17,13 +18,14 @@ const StreamClient = (() => {
    * @param {object}   opts
    * @param {string}   opts.url          - API endpoint (POST)
    * @param {object}   opts.body         - JSON-serialisable request body
+   * @param {boolean}  [opts.parseAsText]- If true, skip JSON.parse; onComplete gets raw string
    * @param {Function} opts.onChunk      - called with each raw text chunk
-   * @param {Function} opts.onComplete   - called with the fully-parsed result object
+   * @param {Function} opts.onComplete   - called with the fully-parsed result object (or raw string)
    * @param {Function} opts.onError      - called with an Error on failure
    * @param {Function} [opts.onProgress] - called with a progress hint string
    * @returns {{ abort: Function }}       - returns a controller to cancel the stream
    */
-  function openStream({ url, body, onChunk, onComplete, onError, onProgress }) {
+  function openStream({ url, body, parseAsText = false, onChunk, onComplete, onError, onProgress }) {
     const controller = new AbortController();
 
     (async () => {
@@ -49,9 +51,9 @@ const StreamClient = (() => {
         const reader  = response.body.getReader();
         const decoder = new TextDecoder();
         let   buffer  = '';
-        let   jsonBuf = '';
+        let   accumBuf = '';
 
-        if (onProgress) onProgress('Receiving AI analysis...');
+        if (onProgress) onProgress('Receiving AI response...');
 
         while (true) {
           const { done, value } = await reader.read();
@@ -64,46 +66,58 @@ const StreamClient = (() => {
           buffer = lines.pop(); // keep incomplete last line
 
           for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const chunk = line.slice(6);
+            if (!line.startsWith('data: ')) continue;
+            const chunk = line.slice(6);
 
-              // Server signals end of stream with [DONE]
-              if (chunk.trim() === '[DONE]') {
-                if (onProgress) onProgress('Processing results...');
+            // Server signals end of stream with [DONE]
+            if (chunk.trim() === '[DONE]') {
+              if (onProgress) onProgress('Processing results...');
+              if (parseAsText) {
+                onComplete(accumBuf);
+              } else {
                 try {
-                  const parsed = JSON.parse(jsonBuf);
-                  onComplete(parsed);
-                } catch (parseErr) {
+                  onComplete(JSON.parse(accumBuf));
+                } catch (_) {
                   onError(new Error('Failed to parse AI response. Please try again.'));
                 }
-                return;
               }
-
-              // Server signals a mid-stream error with __ERROR__{...json...}
-              if (chunk.startsWith('__ERROR__')) {
-                try {
-                  const errObj = JSON.parse(chunk.slice(9));
-                  onError(new Error(errObj.error || 'Server error during analysis.'));
-                } catch (_) {
-                  onError(new Error('Server error during analysis.'));
-                }
-                return;
-              }
-
-              // Unescape newlines the server escaped inside SSE frames
-              jsonBuf += chunk.replace(/\\n/g, '\n');
-              if (onChunk) onChunk(chunk);
+              return;
             }
+
+            // Server signals a mid-stream error with __ERROR__{...json...}
+            if (chunk.startsWith('__ERROR__')) {
+              try {
+                const errObj = JSON.parse(chunk.slice(9));
+                onError(new Error(errObj.error || 'Server error during analysis.'));
+              } catch (_) {
+                onError(new Error('Server error during analysis.'));
+              }
+              return;
+            }
+
+            // Each chunk is a JSON-encoded string — decode it to recover the
+            // original text (including any embedded newlines or control chars).
+            let decoded;
+            try {
+              decoded = JSON.parse(chunk);
+            } catch (_) {
+              decoded = chunk; // fallback: use raw chunk if decode fails
+            }
+            accumBuf += decoded;
+            if (onChunk) onChunk(decoded);
           }
         }
 
-        // If stream ends without [DONE], attempt to parse what we have
-        if (jsonBuf.trim()) {
-          try {
-            const parsed = JSON.parse(jsonBuf);
-            onComplete(parsed);
-          } catch (_) {
-            onError(new Error('Incomplete response from AI. Please try again.'));
+        // Stream ended without [DONE] — attempt to use what we have
+        if (accumBuf.trim()) {
+          if (parseAsText) {
+            onComplete(accumBuf);
+          } else {
+            try {
+              onComplete(JSON.parse(accumBuf));
+            } catch (_) {
+              onError(new Error('Incomplete AI response received. Please try again.'));
+            }
           }
         }
 

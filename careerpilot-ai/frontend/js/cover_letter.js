@@ -1,8 +1,6 @@
 /**
  * cover_letter.js — Cover Letter Generator modal.
- *
- * Phase 1: Modal open/close and form wiring.
- * Phase 2: Connects to /api/cover-letter SSE endpoint.
+ * Streams plain text from /api/cover-letter via SSE and renders it in the modal.
  */
 
 const CoverLetter = (() => {
@@ -11,7 +9,8 @@ const CoverLetter = (() => {
       jobTitleInput, jobDescInput, resultBox, resultText, copyBtn;
 
   // ── State ──────────────────────────────────────────────────────────────
-  let resumeText = '';   // set by App after analysis completes
+  let resumeText    = '';   // set by App after analysis completes
+  let activeStream  = null; // current SSE controller
 
   // ── Open / Close ──────────────────────────────────────────────────────
 
@@ -23,13 +22,22 @@ const CoverLetter = (() => {
   }
 
   function close() {
+    if (activeStream) { activeStream.abort(); activeStream = null; }
     modal.classList.add('hidden');
     document.body.style.overflow = '';
   }
 
+  // ── UI helpers ─────────────────────────────────────────────────────────
+
+  function setLoading(on) {
+    generateBtn.disabled = on;
+    generateBtn.querySelector('.btn-default-content').classList.toggle('hidden', on);
+    generateBtn.querySelector('.btn-loading-content').classList.toggle('hidden', !on);
+  }
+
   // ── Generate ──────────────────────────────────────────────────────────
 
-  async function generate() {
+  function generate() {
     const jobTitle = jobTitleInput.value.trim();
     const jobDesc  = jobDescInput.value.trim();
 
@@ -50,35 +58,52 @@ const CoverLetter = (() => {
       return;
     }
 
-    // Show loading state
-    generateBtn.disabled = true;
-    generateBtn.querySelector('.btn-default-content').classList.add('hidden');
-    generateBtn.querySelector('.btn-loading-content').classList.remove('hidden');
-    resultBox.classList.add('hidden');
+    // Abort any in-flight stream
+    if (activeStream) { activeStream.abort(); activeStream = null; }
 
-    try {
-      // Phase 2: replace with StreamClient.openStream call
-      // For now, show a placeholder message
-      await new Promise(r => setTimeout(r, 600));
-      resultText.textContent =
-        'Cover letter generation will be available in Phase 2 after Gemini integration.\n\n' +
-        'The backend endpoint /api/cover-letter is already defined and ready to connect.';
-      resultBox.classList.remove('hidden');
-      App.showToast('Cover letter generated! (Phase 2 preview)', 'info');
-    } catch (err) {
-      App.showToast(err.message || 'Failed to generate cover letter.', 'error');
-    } finally {
-      generateBtn.disabled = false;
-      generateBtn.querySelector('.btn-default-content').classList.remove('hidden');
-      generateBtn.querySelector('.btn-loading-content').classList.add('hidden');
-    }
+    setLoading(true);
+    resultBox.classList.add('hidden');
+    resultText.textContent = '';
+
+    activeStream = StreamClient.openStream({
+      url:         '/api/cover-letter',
+      body:        { resume_text: resumeText, job_title: jobTitle, job_description: jobDesc },
+      parseAsText: true,
+
+      onChunk(chunk) {
+        // Stream text into the result box as it arrives
+        resultText.textContent += chunk;
+        if (resultBox.classList.contains('hidden')) {
+          resultBox.classList.remove('hidden');
+        }
+      },
+
+      onComplete(text) {
+        activeStream = null;
+        setLoading(false);
+        resultText.textContent = text;
+        resultBox.classList.remove('hidden');
+        App.showToast('Cover letter generated!', 'success');
+      },
+
+      onError(err) {
+        activeStream = null;
+        setLoading(false);
+        App.showToast(err.message || 'Failed to generate cover letter.', 'error');
+      },
+    });
   }
 
   // ── Copy ──────────────────────────────────────────────────────────────
 
   async function copyToClipboard() {
+    const text = resultText.textContent;
+    if (!text) {
+      App.showToast('Nothing to copy yet.', 'warning');
+      return;
+    }
     try {
-      await navigator.clipboard.writeText(resultText.textContent);
+      await navigator.clipboard.writeText(text);
       copyBtn.textContent = 'Copied!';
       setTimeout(() => { copyBtn.textContent = 'Copy to Clipboard'; }, 2000);
     } catch (_) {
