@@ -8,6 +8,18 @@ Analyze the provided resume and return a structured JSON response with exactly t
 13 sections. Be specific, actionable, and honest. Do not pad with generic advice.
 """
 
+STRICT_JSON_RETRY_SYSTEM_PROMPT = """You are a JSON API endpoint.
+Your ONLY output must be a raw, valid JSON object.
+Rules:
+- Do NOT wrap the JSON in markdown code fences (``` or ```json).
+- Do NOT include any explanatory text, preamble, or commentary before or after the JSON.
+- Do NOT include JavaScript-style comments (// or /* */) inside the JSON.
+- Start your response with { and end with }.
+- Every string value must be properly escaped.
+- No trailing commas.
+- Output must be parseable by Python's json.loads() with zero preprocessing.
+"""
+
 ANALYSIS_USER_PROMPT_TEMPLATE = """
 Resume Text:
 ---

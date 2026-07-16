@@ -1,0 +1,1 @@
+- [Gemini JSON parsing strategy](gemini-json-parsing.md) — buffer+parse on backend; strip fences, repair trailing commas, retry once with strict prompt, apply defaults.
