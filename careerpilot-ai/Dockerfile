@@ -20,6 +20,13 @@ ENV PYTHONUNBUFFERED=1 \
 WORKDIR /app
 
 # ── Dependencies (cached layer) ────────────────────────────────────────────────
+# Install system dependencies (Tesseract OCR)
+RUN apt-get update && apt-get install -y \
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
