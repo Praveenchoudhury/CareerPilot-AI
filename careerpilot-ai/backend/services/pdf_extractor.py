@@ -1,6 +1,23 @@
-import fitz  # PyMuPDF
+import io
+import os
 
+import fitz # PyMuPDF
+import pytesseract
+from PIL import Image
 
+import shutil
+
+if os.name == "nt":
+    # Windows
+    pytesseract.pytesseract.tesseract_cmd = (
+        r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+    )
+else:
+    # Linux (Render)
+    tesseract_path = shutil.which("tesseract")
+    if tesseract_path:
+        pytesseract.pytesseract.tesseract_cmd = tesseract_path
+        
 def extract_pdf_text(pdf_bytes: bytes) -> str:
     """
     Extract clean plain text from a PDF file.
@@ -17,12 +34,28 @@ def extract_pdf_text(pdf_bytes: bytes) -> str:
     pages: list[str] = []
 
     for page in doc:
-        text = page.get_text("text", sort=True)
-        if text.strip():
-            pages.append(text.strip())
+     # Try normal text extraction first
+     text = page.get_text("text", sort=True)
+
+    if text.strip():
+        pages.append(text.strip())
+    else:
+        # No embedded text found → use OCR
+        matrix = fitz.Matrix(3, 3)   # Higher resolution
+        pix = page.get_pixmap(matrix=matrix)
+
+        image = Image.open(io.BytesIO(pix.tobytes("png")))
+
+        # Convert to grayscale
+        image = image.convert("L")
+
+        ocr_text = pytesseract.image_to_string(image)
+
+        if ocr_text.strip():
+            pages.append(ocr_text.strip())
 
     doc.close()
-
+                                               
     if not pages:
         return ""
 
