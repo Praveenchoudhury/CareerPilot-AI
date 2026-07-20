@@ -41,7 +41,7 @@ def extract_pdf_text(pdf_bytes: bytes) -> str:
         pages.append(text.strip())
     else:
         # No embedded text found → use OCR
-        matrix = fitz.Matrix(3, 3)   # Higher resolution
+        matrix = fitz.Matrix(2, 2)   # Higher resolution
         pix = page.get_pixmap(matrix=matrix)
 
         image = Image.open(io.BytesIO(pix.tobytes("png")))
